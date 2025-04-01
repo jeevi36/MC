@@ -1,0 +1,78 @@
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.Scanner;
+
+public class GQCryptography {
+
+public static void main(String[] args) throws Exception {
+Scanner scanner = new Scanner(System.in);
+System.out.println("Enter DNA sequence: ");
+String dnaSequence = scanner.nextLine().toUpperCase();
+
+// Hash the DNA sequence
+String hash = hashDNASequence(dnaSequence);
+System.out.println("SHA-256 Hash: " + hash);
+
+// Generate AES key
+SecretKey secretKey = generateAESKey();
+
+// Encrypt the DNA sequence
+String encryptedSequence = encryptDNASequence(dnaSequence, secretKey);
+System.out.println("Encrypted DNA Sequence: " + encryptedSequence);
+
+// Decrypt the DNA sequence
+String decryptedSequence = decryptDNASequence(encryptedSequence, secretKey);
+System.out.println("Decrypted DNA Sequence: " + decryptedSequence);
+
+// Verify decryption
+boolean isSame = dnaSequence.equals(decryptedSequence);
+
+System.out.println("Decryption verification: " + isSame);
+}
+
+public static String hashDNASequence(String sequence) throws NoSuchAlgorithmException
+{
+MessageDigest digest = MessageDigest.getInstance("SHA-256");
+byte[] hashBytes = digest.digest(sequence.getBytes(StandardCharsets.UTF_8));
+return bytesToHex(hashBytes);
+}
+
+public static SecretKey generateAESKey() throws NoSuchAlgorithmException {
+KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+keyGen.init(256); // AES-256
+return keyGen.generateKey();
+}
+
+public static String encryptDNASequence(String sequence, SecretKey key) throws Exception
+{
+Cipher cipher = Cipher.getInstance("AES");
+cipher.init(Cipher.ENCRYPT_MODE, key);
+byte[] encryptedBytes = cipher.doFinal(sequence.getBytes(StandardCharsets.UTF_8));
+return Base64.getEncoder().encodeToString(encryptedBytes);
+}
+
+public static String decryptDNASequence(String encryptedSequence, SecretKey key) throws
+Exception {
+Cipher cipher = Cipher.getInstance("AES");
+cipher.init(Cipher.DECRYPT_MODE, key);
+byte[] decodedBytes = Base64.getDecoder().decode(encryptedSequence);
+byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+return new String(decryptedBytes, StandardCharsets.UTF_8);
+}
+
+private static String bytesToHex(byte[] bytes) {
+StringBuilder hexString = new StringBuilder();
+for (byte b : bytes) {
+String hex = Integer.toHexString(0xff & b);
+if (hex.length() == 1) hexString.append('0');
+hexString.append(hex);
+}
+return hexString.toString();
+}
+}
