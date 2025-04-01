@@ -1,0 +1,69 @@
+import java.util.*;
+import java.math.BigInteger;
+import java.security.SecureRandom;
+
+
+public class FeigeFiatShamir {
+
+    private static final SecureRandom random = new SecureRandom();
+
+    // Function to generate a random prime number of specified bit length
+    public static BigInteger generatePrime(int bits) {
+        return BigInteger.probablePrime(bits, random);
+    }
+
+    // Function to set up the initial parameters for the protocol
+    public static BigInteger[] setup(int bits) {
+        BigInteger p = generatePrime(bits);
+        BigInteger q = generatePrime(bits);
+        BigInteger n = p.multiply(q);
+        BigInteger s = new BigInteger(bits, random).mod(n);
+        BigInteger v = s.modPow(BigInteger.TWO, n);
+        return new BigInteger[]{p, q, n, s, v};
+    }
+
+    // Function to perform a single round of the identification process
+    public static void identificationProver(BigInteger n, BigInteger s, BigInteger v) {
+        BigInteger r = new BigInteger(n.bitLength(), random).mod(n);
+        BigInteger x = r.modPow(BigInteger.TWO, n);
+        System.out.println("Prover sends: x = " + x);
+
+        int e = random.nextInt(2);
+        System.out.println("Verifier sends challenge: e = " + e);
+
+        BigInteger y;
+        if (e == 0) {
+            y = r;
+        } else {
+            y = r.multiply(s).mod(n);
+        }
+        System.out.println("Prover sends response: y = " + y);
+
+        if (e == 0) {
+            if (y.modPow(BigInteger.TWO, n).equals(x)) {
+                System.out.println("Verifier accepts the response.");
+            } else {
+                System.out.println("Verifier rejects the response.");
+            }
+        } else {
+            if (y.modPow(BigInteger.TWO, n).equals(x.multiply(v).mod(n))) {
+                System.out.println("Verifier accepts the response.");
+            } else {
+                System.out.println("Verifier rejects the response.");
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        int bits = 64;
+        BigInteger[] params = setup(bits);
+        BigInteger n = params[2];
+        BigInteger s = params[3];
+        BigInteger v = params[4];
+
+        System.out.println("Public values: n = " + n + ", v = " + v);
+        System.out.println("Prover's secret: s = " + s);
+
+        identificationProver(n, s, v);
+    }
+}
