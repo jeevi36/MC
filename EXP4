@@ -1,0 +1,113 @@
+import java.math.BigInteger;
+import java.security.*;
+import java.util.Base64;
+
+public class RabinOneTimeSignature {
+
+private static final int BIT_LENGTH = 512; // Bit length for the keys
+
+public static class KeyPair {
+public PrivateKey privateKey;
+public PublicKey publicKey;
+
+public KeyPair(PrivateKey privateKey, PublicKey publicKey) {
+this.privateKey = privateKey;
+this.publicKey = publicKey;
+}
+}
+
+public static class PrivateKey {
+
+private final BigInteger p;
+private final BigInteger q;
+
+public PrivateKey(BigInteger p, BigInteger q) {
+this.p = p;
+this.q = q;
+}
+
+public BigInteger getP() {
+return p;
+}
+
+public BigInteger getQ() {
+return q;
+}
+}
+
+public static class PublicKey {
+private final BigInteger n;
+
+public PublicKey(BigInteger n) {
+this.n = n;
+}
+
+public BigInteger getN() {
+
+return n;
+}
+}
+
+public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
+SecureRandom random = SecureRandom.getInstanceStrong();
+BigInteger p = BigInteger.probablePrime(BIT_LENGTH / 2, random);
+BigInteger q = BigInteger.probablePrime(BIT_LENGTH / 2, random);
+BigInteger n = p.multiply(q);
+
+return new KeyPair(new PrivateKey(p, q), new PublicKey(n));
+}
+
+public static byte[] signMessage(String message, PrivateKey privateKey) throws
+NoSuchAlgorithmException {
+MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+byte[] messageHash = sha256.digest(message.getBytes());
+
+BigInteger m = new BigInteger(1, messageHash);
+BigInteger p = privateKey.getP();
+BigInteger q = privateKey.getQ();
+
+// Find the square roots modulo p and q
+BigInteger m1 = m.modPow(p.add(BigInteger.ONE).divide(BigInteger.valueOf(4)), p);
+BigInteger m2 = m.modPow(q.add(BigInteger.ONE).divide(BigInteger.valueOf(4)), q);
+
+// Use the Chinese Remainder Theorem to combine the roots
+BigInteger n = p.multiply(q);
+BigInteger yP = q.multiply(q.modInverse(p));
+BigInteger yQ = p.multiply(p.modInverse(q));
+
+BigInteger x = m1.multiply(yP).add(m2.multiply(yQ)).mod(n);
+return x.toByteArray();
+}
+
+public static boolean verifySignature(String message, byte[] signature, PublicKey publicKey) throws
+NoSuchAlgorithmException {
+MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+byte[] messageHash = sha256.digest(message.getBytes());
+
+BigInteger m = new BigInteger(1, messageHash);
+BigInteger x = new BigInteger(1, signature);
+BigInteger n = publicKey.getN();
+
+BigInteger xSquared = x.modPow(BigInteger.valueOf(2), n);
+return xSquared.equals(m);
+}
+
+public static void main(String[] args) {
+try {
+// Generate key pair
+KeyPair keyPair = generateKeyPair();
+
+// Sign a message
+String message = "Hello, Rabin!";
+byte[] signature = signMessage(message, keyPair.privateKey);
+System.out.println("Signature: " + Base64.getEncoder().encodeToString(signature));
+
+// Verify the signature
+boolean isValid = verifySignature(message, signature, keyPair.publicKey);
+System.out.println("Signature valid: " + isValid);
+
+} catch (NoSuchAlgorithmException e) {
+e.printStackTrace();
+}
+}
+}
