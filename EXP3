@@ -1,0 +1,72 @@
+//create new folder inside that another folder named lib
+//inside lib paste downlaoded bouncycastle
+//outside lib folder create file.java
+
+//to run command use ->   javac -cp ".;lib/bcprov-jdk18on-1.80.jar" FeigeFiatShamir.java
+//Next ->  java -cp ".;lib/bcprov-jdk18on-1.80.jar" FeigeFiatShamir
+
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.math.BigInteger;
+import java.security.*;
+import java.util.Random;
+
+public class FeigeFiatShamir {
+
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
+
+    private static final BigInteger p = new BigInteger("23"); // Example small prime p
+    private static final BigInteger q = new BigInteger("11"); // Example small prime q (q divides p-1)
+    private static final BigInteger g = new BigInteger("2"); // Example generator g
+    private static BigInteger x; // Prover's secret key
+    private static BigInteger y; // Prover's public key
+    private static SecureRandom random = new SecureRandom();
+
+    public static void main(String[] args) {
+        setup();
+        BigInteger r = proverCommitment();
+        BigInteger c = verifierChallenge();
+        BigInteger s = proverResponse(r, c);
+        boolean isVerified = verifierVerification(r, c, s);
+        System.out.println("Verification: " + (isVerified ? "Successful" : "Failed"));
+    }
+
+    private static void setup() {
+        x = new BigInteger(q.bitLength(), random).mod(q); // Secret key
+        y = g.modPow(x, p); // Public key
+        System.out.println("Setup completed.");
+        System.out.println("Public key (y): " + y);
+    }
+
+    private static BigInteger proverCommitment() {
+        BigInteger k = new BigInteger(q.bitLength(), random).mod(q); // Random nonce
+        BigInteger r = g.modPow(k, p); // Commitment
+        System.out.println("Prover's commitment (r): " + r);
+        return r;
+    }
+
+    private static BigInteger verifierChallenge() {
+        BigInteger c = new BigInteger(q.bitLength(), random).mod(q); // Random challenge
+        System.out.println("Verifier's challenge (c): " + c);
+        return c;
+    }
+
+    private static BigInteger proverResponse(BigInteger r, BigInteger c) {
+        BigInteger k = new BigInteger(q.bitLength(), random).mod(q); // Random nonce
+        BigInteger s = k.add(c.multiply(x)).mod(q); // Response
+        System.out.println("Prover's response (s): " + s);
+        return s;
+    }
+
+    private static boolean verifierVerification(BigInteger r, BigInteger c, BigInteger s) {
+        BigInteger lhs = g.modPow(s, p); // g^s % p
+        BigInteger rhs = r.multiply(y.modPow(c, p)).mod(p); // r * y^c % p
+        System.out.println("Verifier's check: g^s % p == r * y^c % p");
+
+        System.out.println("LHS (g^s % p): " + lhs);
+        System.out.println("RHS (r * y^c % p): " + rhs);
+        return lhs.equals(rhs);
+    }
+}
