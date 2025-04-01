@@ -1,0 +1,109 @@
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.security.*;
+import java.util.Base64;
+
+public class MerkleOTS {
+
+private static final int KEY_SIZE = 256; // Number of pairs in the key
+private static final int HASH_SIZE = 32; // Size of each hash in bytes
+
+static {
+Security.addProvider(new BouncyCastleProvider());
+}
+
+public static class KeyPair {
+
+public byte[][] privateKey;
+public String[][] publicKey;
+
+public KeyPair(byte[][] privateKey, String[][] publicKey) {
+this.privateKey = privateKey;
+this.publicKey = publicKey;
+}
+}
+
+public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
+SecureRandom random = SecureRandom.getInstanceStrong();
+MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+
+byte[][] privateKey = new byte[KEY_SIZE * 2][HASH_SIZE];
+String[][] publicKey = new String[KEY_SIZE][2];
+
+for (int i = 0; i < KEY_SIZE; i++) {
+byte[] privateKey0 = new byte[HASH_SIZE];
+byte[] privateKey1 = new byte[HASH_SIZE];
+random.nextBytes(privateKey0);
+random.nextBytes(privateKey1);
+
+privateKey[i * 2] = privateKey0;
+privateKey[i * 2 + 1] = privateKey1;
+
+publicKey[i][0] = Base64.getEncoder().encodeToString(sha256.digest(privateKey0));
+publicKey[i][1] = Base64.getEncoder().encodeToString(sha256.digest(privateKey1));
+}
+
+return new KeyPair(privateKey, publicKey);
+}
+
+public static byte[][] signMessage(String message, byte[][] privateKey) throws
+NoSuchAlgorithmException {
+MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+byte[] messageHash = sha256.digest(message.getBytes());
+
+byte[][] signature = new byte[KEY_SIZE][HASH_SIZE];
+for (int i = 0; i < KEY_SIZE; i++) {
+int bit = (messageHash[i / 8] >> (i % 8)) & 1;
+signature[i] = privateKey[i * 2 + bit];
+}
+
+return signature;
+}
+
+public static boolean verifySignature(String message, byte[][] signature, String[][] publicKey)
+throws NoSuchAlgorithmException {
+MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+byte[] messageHash = sha256.digest(message.getBytes());
+
+for (int i = 0; i < KEY_SIZE; i++) {
+int bit = (messageHash[i / 8] >> (i % 8)) & 1;
+String hash = Base64.getEncoder().encodeToString(sha256.digest(signature[i]));
+if (!hash.equals(publicKey[i][bit])) {
+return false;
+}
+}
+
+return true;
+}
+
+public static void main(String[] args) {
+
+try {
+// Generate key pair
+KeyPair keyPair = generateKeyPair();
+System.out.println("Private Key:");
+for (byte[] pk : keyPair.privateKey) {
+System.out.println(Base64.getEncoder().encodeToString(pk));
+}
+
+System.out.println("Public Key:");
+for (String[] pk : keyPair.publicKey) {
+System.out.println(pk[0] + " " + pk[1]);
+}
+
+// Sign a message
+String message = "Hello, Merkle!";
+byte[][] signature = signMessage(message, keyPair.privateKey);
+System.out.println("Signature:");
+for (byte[] sig : signature) {
+System.out.println(Base64.getEncoder().encodeToString(sig));
+}
+
+// Verify the signature
+boolean isValid = verifySignature(message, signature, keyPair.publicKey);
+System.out.println("Signature valid: " + isValid);
+
+} catch (NoSuchAlgorithmException e) {
+e.printStackTrace();
+}
+}
+}
