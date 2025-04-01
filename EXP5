@@ -1,3 +1,11 @@
+//create new folder inside that another folder named lib
+//inside lib paste downlaoded bouncycastle
+//outside lib folder create file.java
+
+//to run command use ->   javac -cp ".;lib/bcprov-jdk18on-1.80.jar" MerkleOTS.java
+//Next ->  java -cp ".;lib/bcprov-jdk18on-1.80.jar" MerkleOTS
+
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import java.security.*;
 import java.util.Base64;
