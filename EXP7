@@ -1,0 +1,124 @@
+import java.math.BigInteger;
+import java.security.*;
+import java.util.Base64;
+
+public class FeigeFiatShamir {
+
+    private static final int N = 128; // Security parameter (bit length of primes)
+    private static final int K = 256; // Number of bits in the message hash
+
+    public static class KeyPair {
+        public PrivateKey privateKey;
+        public PublicKey publicKey;
+
+        public KeyPair(PrivateKey privateKey, PublicKey publicKey) {
+            this.privateKey = privateKey;
+            this.publicKey = publicKey;
+        }
+    }
+
+    public static class PrivateKey {
+        private final BigInteger[] x;
+
+        public PrivateKey(BigInteger[] x) {
+            this.x = x;
+        }
+
+        public BigInteger[] getX() {
+            return x;
+        }
+    }
+
+    public static class PublicKey {
+        private final BigInteger[] y;
+
+        public PublicKey(BigInteger[] y) {
+            this.y = y;
+        }
+
+        public BigInteger[] getY() {
+            return y;
+        }
+    }
+
+    public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
+    SecureRandom random = SecureRandom.getInstanceStrong();
+    BigInteger[] x = new BigInteger[K];
+    BigInteger[] y = new BigInteger[K];
+
+    for (int i = 0; i < K; i++) {
+        // Ensure x[i] is odd
+        do {
+            x[i] = new BigInteger(N, random);
+        } while (x[i].mod(BigInteger.TWO).equals(BigInteger.ZERO)); // Ensure x[i] is odd
+
+        // Now y[i] should be the modular inverse of x[i] modulo 2^N
+        y[i] = x[i].modInverse(BigInteger.valueOf(2).pow(N));
+    }
+
+    return new KeyPair(new PrivateKey(x), new PublicKey(y));
+}
+
+    public static byte[][] signMessage(String message, PrivateKey privateKey) throws NoSuchAlgorithmException {
+        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+        byte[] messageHash = sha256.digest(message.getBytes());
+
+        byte[][] signature = new byte[K][];  // The signature is a 2D byte array
+        for (int i = 0; i < K; i++) {
+            int bit = (messageHash[i / 8] >> (i % 8)) & 1;  // Extracting the bit from the message hash
+            if (bit == 0) {
+                signature[i] = privateKey.getX()[i].toByteArray();
+            } else {
+                signature[i] = privateKey.getX()[i].modInverse(BigInteger.valueOf(2).pow(N)).toByteArray();  // Mod inverse for signature
+            }
+        }
+
+        return signature;
+    }
+
+    public static boolean verifySignature(String message, byte[][] signature, PublicKey publicKey) throws NoSuchAlgorithmException {
+        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+        byte[] messageHash = sha256.digest(message.getBytes());
+
+        for (int i = 0; i < K; i++) {
+            int bit = (messageHash[i / 8] >> (i % 8)) & 1;  // Extracting the bit from the message hash
+            BigInteger sig = new BigInteger(signature[i]);
+
+            if (bit == 0) {
+                // Verify if the signature matches the public key with modular inverse
+                if (!sig.equals(publicKey.getY()[i].modInverse(BigInteger.valueOf(2).pow(N)))) {
+                    return false;
+                }
+            } else {
+                // Verify if the signature matches the public key directly
+                if (!sig.equals(publicKey.getY()[i])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;  // Signature is valid
+    }
+
+    public static void main(String[] args) {
+        try {
+            // Generate key pair
+            KeyPair keyPair = generateKeyPair();
+
+            // Sign a message
+            String message = "Hello, GMR!";
+            byte[][] signature = signMessage(message, keyPair.privateKey);
+            System.out.println("Signature:");
+            for (byte[] sig : signature) {
+                System.out.println(Base64.getEncoder().encodeToString(sig));
+            }
+
+            // Verify the signature
+            boolean isValid = verifySignature(message, signature, keyPair.publicKey);
+            System.out.println("Signature valid: " + isValid);
+
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+    }
+}
